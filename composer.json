@@ -1,0 +1,30 @@
+{
+  "name": "othercode/cli",
+  "type": "library",
+  "license": "MIT",
+  "description": "Command line interface framework.",
+  "keywords": [
+    "cli",
+    "commands",
+    "terminal"
+  ],
+  "authors": [
+    {
+      "name": "Unay Santisteban",
+      "email": "usantisteban@othercode.es",
+      "homepage": "http://othercode.es/",
+      "role": "developer"
+    }
+  ],
+  "require": {
+    "php": ">=5.4.*",
+  },
+  "autoload": {
+    "psr-4": {
+      "OtherCode\\CLI\\": "src/"
+    }
+  },
+  "require-dev": {
+    "phpunit/phpunit": "*"
+  }
+}

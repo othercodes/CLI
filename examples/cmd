@@ -1,0 +1,30 @@
+#!/usr/bin/php
+<?php
+
+/**
+ * Include the main required files.
+ */
+require_once '../autoload.php';
+
+/**
+ * Direct import, we can use a custom autoload for our
+ * implementation, or even the composer autoload
+ */
+require_once 'Application.php';
+require_once 'Commands/HelloCommand.php';
+
+/**
+ * Custom error handler.
+ */
+set_error_handler(function ($level, $message, $file, $line) {
+    if (!(error_reporting() & $level)) {
+        return null;
+    }
+    throw new \Exception($message . ' at ' . $file . ':' . $line, 500);
+});
+
+/**
+ * Instantiate and run the CLI Application
+ */
+$cli = new Application($argv);
+$cli->execute();
