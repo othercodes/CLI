@@ -4,7 +4,7 @@
 /**
  * Include the main required files.
  */
-require_once '../autoload.php';
+require_once '../vendor/autoload.php';
 
 /**
  * Direct import, we can use a custom autoload for our

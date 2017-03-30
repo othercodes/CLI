@@ -69,26 +69,26 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
 
             /**
              * search in the command folder for all the available
-             * files/classes and add them to the options list.
+             * files/classes and add them to the arguments list.
              */
             foreach ($this->command as $name => $class) {
-                $this->options[strtolower($name) . '|' . $name] = $name;
+                $this->arguments[strtolower($name) . '|' . $name] = $name;
             }
 
             /**
-             * Append the default options to the options list
+             * Append the default arguments to the arguments list
              *  -h help Show help information.
              */
-            $this->options = array_merge($this->options, array(
+            $this->arguments = array_merge($this->arguments, array(
                 '-h|help' => 'Show help information.',
             ));
 
             /**
-             * pre-process the options to allow a better search
+             * pre-process the arguments to allow a better search
              * in the argument string cli.
              */
             $options = array();
-            foreach ($this->options as $arg => $description) {
+            foreach ($this->arguments as $arg => $description) {
                 list($key, $param) = explode('|', $arg, 2);
                 $options[trim($key, ":0123456789")] = array(
                     'description' => $description,
@@ -99,7 +99,7 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
 
             /**
              * process each element of the cli string finding
-             * arguments, commands and options
+             * arguments, commands and arguments
              */
             $processed = array();
             foreach ($argv as $index => $arg) {
@@ -107,7 +107,7 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
 
                 /**
                  * search the current element of the cli string in the
-                 * registered key words (options), if it exists we
+                 * registered key words (arguments), if it exists we
                  * get the "type" of the keyword if it have - it is an
                  * option if not try to find a command that match, finally
                  * if the element is'nt a command or option, we assume is a
@@ -122,7 +122,7 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
                          * the rest of the cli string.
                          */
                         $fqn = '\Commands\\' . trim($options[$arg]['param']) . 'Command';
-                        if (class_exists($fqn) && !in_array($options[$arg]['key'], $this->arguments, true)) {
+                        if (class_exists($fqn) && !in_array($options[$arg]['key'], $this->options, true)) {
 
                             /**
                              * Calculate the delegate cli string and register the
@@ -132,7 +132,7 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
                             for ($i = count($argv) - 1; $i >= $index; $i--) {
                                 $processed[] = $argv[$i];
                             }
-                            $this->arguments['command'] = new $fqn($childArgv);
+                            $this->options['command'] = new $fqn($childArgv);
                         }
 
                     } else {
@@ -148,9 +148,9 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
 
                             /**
                              * if we don't have the : character the option is
-                             * a true/false options... a flag.
+                             * a true/false arguments... a flag.
                              */
-                            $this->arguments[$options[$arg]['param']] = true;
+                            $this->options[$options[$arg]['param']] = true;
                             $processed[] = $argv[$index];
 
                         } else {
@@ -171,10 +171,7 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
                              * Save the actual option values and register the
                              * elements already processed to accelerate the parse
                              */
-                            $this->arguments[$options[$arg]['param']] = array_diff(array_slice($argv, $index + 1, $number), $processed);
-                            for ($i = $index; $i < ($index + 1 + $number); $i++) {
-                                $processed[] = $argv[$i];
-                            }
+                            $this->options[$options[$arg]['param']] = array_diff(array_slice($argv, $index + 1, $number), $processed);
                         }
                     }
                 }
@@ -183,9 +180,9 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
             /**
              * calculate the difference between the cli string ($argv)
              * and the processed elements, the result is the common
-             * input arguments.
+             * input options.
              */
-            $this->arguments['input'] = array_diff($argv, $processed);
+            $this->options['input'] = array_diff($argv, $processed);
 
         } catch (\Exception $e) {
 
@@ -205,16 +202,16 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
      */
     public function help()
     {
-        $help = $this->description() . "\n" . self::NAME . " v" . self::VERSION . "\n";
+        $help = $this->description() . "\n" . static::NAME . " v" . static::VERSION . "\n";
 
         $options = "\n Options: \n";
         $commands = "\n Commands: \n";
 
         /**
-         * parse the options block to render de help message
-         * with the available options.
+         * parse the arguments block to render de help message
+         * with the available arguments.
          */
-        foreach ($this->options as $key => $value) {
+        foreach ($this->arguments as $key => $value) {
             if (strpos($key, '-') === false) {
                 $commands .= "   " . strtolower($value) . "\n";
             } else {
@@ -257,12 +254,12 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
 
         } while ($required === true && empty($value));
 
-        return $value;
+        return trim($value);
     }
 
     /**
      * Main execution method, here the system
-     * route to the proper methods or options.
+     * route to the proper methods or arguments.
      */
     public function execute()
     {
@@ -272,7 +269,7 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
              * if the help flag (-h) is present we show
              * the help message.
              */
-            if (isset($this->arguments['help'])) {
+            if (isset($this->options['help'])) {
                 print $this->help();
 
             } else {
@@ -283,8 +280,8 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
                  * to the current command (callback system).
                  */
                 $payload = null;
-                if (isset($this->arguments['command'])) {
-                    $payload = $this->arguments['command']->execute();
+                if (isset($this->options['command'])) {
+                    $payload = $this->options['command']->execute();
                 }
                 $this->run($payload);
             }
