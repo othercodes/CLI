@@ -202,33 +202,56 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
      */
     public function help()
     {
-        $help = $this->description() . "\n" . static::NAME . " v" . static::VERSION . "\n";
+        $help = array($this->description() . "\n" . static::NAME . " v" . static::VERSION . "\n");
 
-        $options = "\n Options: \n";
-        $commands = "\n Commands: \n";
+        if (isset($this->main)) {
+            $help[] = "Syntax: \n   php " . $this->main . " [options] [arguments] [sub-command] [options] [arguments]\n";
+        }
 
         /**
          * parse the arguments block to render de help message
          * with the available arguments.
          */
+        $commands = array(" Commands:");
         foreach ($this->arguments as $key => $value) {
             if (strpos($key, '-') === false) {
-                $commands .= "   " . strtolower($value) . "\n";
-            } else {
-                $options .= "   " . $key . " " . ucfirst($value) . "\n";
+                $commands[] = "   " . strtolower($value);
             }
         }
-        return $help . $options . $commands . "\n";
+
+        if (count($commands) > 1) {
+            $help[] = implode("\n", $commands) . "\n";
+        }
+
+        $options = array(" Options:");
+        foreach ($this->arguments as $key => $value) {
+            if (strpos($key, '-') !== false) {
+                $options[] = "   " . $key . " " . ucfirst($value);
+            }
+        }
+
+        if (count($options) > 1) {
+            $help[] = implode("\n", $options) . "\n";
+        }
+
+
+        return implode("\n", $help) . "\n";
     }
 
     /**
      * Write a text line
      * @param string $msg
      * @param array $context
+     * @param bool $onScreen
+     * @return string
      */
-    public function write($msg, array $context = array())
+    public function write($msg, array $context = array(), $onScreen = true)
     {
-        print strtr($msg, $context) . "\n";
+        $message = strtr($msg, $context) . "\n";
+        if ($onScreen === true) {
+            print $message;
+        }
+        return $message;
     }
 
     /**
@@ -236,9 +259,10 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
      * @param string $message
      * @param string $default
      * @param bool $required
+     * @param array $context
      * @return string
      */
-    public function input($message, $default = null, $required = false)
+    public function input($message, $default = null, $required = false, array $context = array())
     {
         do {
 
@@ -246,7 +270,7 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
                 $message .= ' [' . $default . ']';
             }
 
-            $value = readline($message . ': ');
+            $value = readline($this->write($message, $context, false) . ': ');
 
             if (empty($value) && !empty($default)) {
                 $value = $default;
@@ -265,25 +289,34 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
     {
         try {
 
-            /**
-             * if the help flag (-h) is present we show
-             * the help message.
-             */
-            if (isset($this->options['help'])) {
+            if (count($this->options) === 1 && count($this->options['input']) === 0) {
                 print $this->help();
 
             } else {
 
                 /**
-                 * if a sub-command is defined we run it and
-                 * save the result if it, then we pass the result
-                 * to the current command (callback system).
+                 * if the help flag (-h) is present we show
+                 * the help message.
                  */
-                $payload = null;
-                if (isset($this->options['command'])) {
-                    $payload = $this->options['command']->execute();
+                if (isset($this->options['help'])) {
+                    print $this->help();
+
+                    return 0;
+
+                } else {
+
+                    /**
+                     * if a sub-command is defined we run it and
+                     * save the result if it, then we pass the result
+                     * to the current command (callback system).
+                     */
+                    $payload = null;
+                    if (isset($this->options['command'])) {
+                        $payload = $this->options['command']->execute();
+                    }
+
+                    $this->run($payload);
                 }
-                $this->run($payload);
             }
 
         } catch (\Exception $e) {
@@ -293,6 +326,8 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
              * exist the program.
              */
             $this->write('> ' . $e->getMessage());
+
+            return -1;
         }
     }
 }
