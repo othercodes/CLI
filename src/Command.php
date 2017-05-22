@@ -284,40 +284,36 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
     /**
      * Main execution method, here the system
      * route to the proper methods or arguments.
+     * @return mixed
      */
     public function execute()
     {
         try {
 
-            if (count($this->options) === 1 && count($this->options['input']) === 0) {
+            /**
+             * if the help flag (-h) is present we show
+             * the help message.
+             */
+            if (isset($this->options['help'])) {
                 print $this->help();
+
+                return 0;
 
             } else {
 
                 /**
-                 * if the help flag (-h) is present we show
-                 * the help message.
+                 * if a sub-command is defined we run it and
+                 * save the result if it, then we pass the result
+                 * to the current command (callback system).
                  */
-                if (isset($this->options['help'])) {
-                    print $this->help();
-
-                    return 0;
-
-                } else {
-
-                    /**
-                     * if a sub-command is defined we run it and
-                     * save the result if it, then we pass the result
-                     * to the current command (callback system).
-                     */
-                    $payload = null;
-                    if (isset($this->options['command'])) {
-                        $payload = $this->options['command']->execute();
-                    }
-
-                    $this->run($payload);
+                $payload = null;
+                if (isset($this->options['command'])) {
+                    $payload = $this->options['command']->execute();
                 }
+
+                return $this->run($payload);
             }
+
 
         } catch (\Exception $e) {
 
@@ -329,5 +325,21 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
 
             return -1;
         }
+    }
+
+    /**
+     * Main code execution
+     * @param mixed $payload
+     * @return mixed
+     */
+    public function run($payload = null)
+    {
+        /**
+         * this command only redirect and launch
+         * other sub-commands.
+         */
+        print $this->help();
+
+        return 0;
     }
 }

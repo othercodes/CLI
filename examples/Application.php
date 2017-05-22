@@ -31,18 +31,5 @@ class Application extends \OtherCode\CLI\Command
         return "Command Line Framework";
     }
 
-    /**
-     * Main code execution
-     * @param mixed $payload
-     * @return mixed
-     */
-    public function run($payload = null)
-    {
-        /**
-         * this command only redirect and launch
-         * other sub-commands.
-         */
-    }
-
 }
 
