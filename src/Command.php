@@ -59,10 +59,10 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
 
             if (isset($this->main)) {
                 $stub = array_shift($argv);
-
-                if ($stub !== $this->main) {
+                
+                if (preg_match('/' . $this->main . '$/', $stub) !== 1) {
                     $this->write("> Illegal entry point: " . $stub);
-
+                    
                     exit("> Shutting down CLI system.\n");
                 }
             }
