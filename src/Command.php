@@ -5,31 +5,31 @@ namespace OtherCode\CLI;
 
 /**
  * Class Command
- * @author Unay Santisteban <davidu@softcom.com>
  * @package OtherCode\CLI
  */
-abstract class Command implements \OtherCode\CLI\CommandInterface
+abstract class Command
 {
-    /**
-     * Current version
-     */
-    const VERSION = '1.0';
-
     /**
      * Application name
      */
     const NAME = 'CLI';
 
     /**
-     * Name for the legal entry point
-     * @var string
+     * Current version
      */
-    protected $main;
+    const VERSION = '1.0.0';
 
     /**
+     * CLI Writter (print messages)
+     * @var \OtherCode\CLI\Writter
+     */
+    protected $writter;
+
+    /**
+     * Available sub-commands list
      * @var array
      */
-    protected $command = array();
+    protected $commands = array();
 
     /**
      * List of available arguments
@@ -41,54 +41,58 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
      * List of available params
      * @var array
      */
-    protected $options = array();
+    protected $parameters = array();
 
     /**
      * Command constructor.
-     * @param array $argv
-     * @throws \Exception
+     * @param Writter|null $writter
      */
-    public function __construct(array $argv = array())
+    public function __construct(\OtherCode\CLI\Writter $writter = null)
     {
+        if (!ini_get('date.timezone')) {
+            ini_set('date.timezone', 'UTC');
+        }
 
+        if (isset($writter)) {
+            $this->writter;
+        } else {
+            $this->writter = new \OtherCode\CLI\Writter();
+        }
+
+        /**
+         * search in the command folder for all the available
+         * files/classes and add them to the arguments list.
+         */
+        foreach ($this->commands as $name => $class) {
+            if (class_exists($class)) {
+                $this->arguments[strtolower($name) . '|' . $name] = $name;
+            }
+        }
+
+        /**
+         * Append the default arguments to the arguments list
+         *  -h help Show help information.
+         */
+        $this->arguments = array_merge($this->arguments, array(
+            '-h|help' => 'Show help information.',
+        ));
+    }
+
+    /**
+     * Bootstrap the command application (arguments, sub-commands, etc)
+     * @param array $argv
+     * @return $this
+     */
+    final public function bootstrap(array $argv = array())
+    {
         try {
 
-            if (!ini_get('date.timezone')) {
-                ini_set('date.timezone', 'UTC');
-            }
-
-            if (isset($this->main)) {
-                $stub = array_shift($argv);
-
-                if ($stub !== $this->main) {
-                    $this->write("> Illegal entry point: " . $stub);
-
-                    exit("> Shutting down CLI system.\n");
-                }
-            }
-
             /**
-             * search in the command folder for all the available
-             * files/classes and add them to the options list.
-             */
-            foreach ($this->command as $name => $class) {
-                $this->options[strtolower($name) . '|' . $name] = $name;
-            }
-
-            /**
-             * Append the default options to the options list
-             *  -h help Show help information.
-             */
-            $this->options = array_merge($this->options, array(
-                '-h|help' => 'Show help information.',
-            ));
-
-            /**
-             * pre-process the options to allow a better search
+             * pre-process the arguments to allow a better search
              * in the argument string cli.
              */
             $options = array();
-            foreach ($this->options as $arg => $description) {
+            foreach ($this->arguments as $arg => $description) {
                 list($key, $param) = explode('|', $arg, 2);
                 $options[trim($key, ":0123456789")] = array(
                     'description' => $description,
@@ -99,19 +103,17 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
 
             /**
              * process each element of the cli string finding
-             * arguments, commands and options
+             * arguments, commands and arguments
              */
             $processed = array();
             foreach ($argv as $index => $arg) {
                 $arg = trim(strtolower($arg));
 
                 /**
-                 * search the current element of the cli string in the
-                 * registered key words (options), if it exists we
-                 * get the "type" of the keyword if it have - it is an
-                 * option if not try to find a command that match, finally
-                 * if the element is'nt a command or option, we assume is a
-                 * common input argument.
+                 * search the current element of the cli string in the registered key words (arguments),
+                 * if it exists we get the "type" of the keyword if it have - it is an option if not try
+                 * to find a command that match, finally if the element is'nt a command or option, we
+                 * assume is a common input argument.
                  */
                 if (array_key_exists($arg, $options) && !in_array($arg, $processed)) {
                     if (strpos($options[$arg]['key'], '-') === false) {
@@ -121,8 +123,8 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
                          * cli string if it exists we instantiate it and delegate
                          * the rest of the cli string.
                          */
-                        $fqn = '\Commands\\' . trim($options[$arg]['param']) . 'Command';
-                        if (class_exists($fqn) && !in_array($options[$arg]['key'], $this->arguments, true)) {
+                        $fqn = trim('\\' . $this->commands[$options[$arg]['param']]);
+                        if (class_exists($fqn) && !in_array($options[$arg]['key'], $this->parameters, true)) {
 
                             /**
                              * Calculate the delegate cli string and register the
@@ -132,7 +134,17 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
                             for ($i = count($argv) - 1; $i >= $index; $i--) {
                                 $processed[] = $argv[$i];
                             }
-                            $this->arguments['command'] = new $fqn($childArgv);
+
+                            /**
+                             * instantiate the sub-command class and bootstrap it with
+                             * the child arguments (the non-process arguments).
+                             */
+                            $this->parameters['command'] = new $fqn();
+                            if (!($this->parameters['command'] instanceof \OtherCode\CLI\Command)) {
+                                throw new \RuntimeException("Invalid command class, the command you are trying to run is not a valid command class.");
+                            }
+
+                            $this->parameters['command']->bootstrap($childArgv);
                         }
 
                     } else {
@@ -148,9 +160,9 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
 
                             /**
                              * if we don't have the : character the option is
-                             * a true/false options... a flag.
+                             * a true/false arguments... a flag.
                              */
-                            $this->arguments[$options[$arg]['param']] = true;
+                            $this->parameters[$options[$arg]['param']] = true;
                             $processed[] = $argv[$index];
 
                         } else {
@@ -171,10 +183,19 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
                              * Save the actual option values and register the
                              * elements already processed to accelerate the parse
                              */
-                            $this->arguments[$options[$arg]['param']] = array_diff(array_slice($argv, $index + 1, $number), $processed);
-                            for ($i = $index; $i < ($index + 1 + $number); $i++) {
-                                $processed[] = $argv[$i];
+                            $this->parameters[$options[$arg]['param']] = array_diff(array_slice($argv, $index + 1, $number), $processed);
+                            $processed[] = $argv[$index];
+
+                            if (count($this->parameters[$options[$arg]['param']]) < $number) {
+                                throw new \InvalidArgumentException(strtr('Invalid parameter count for "{option}" option.', array(
+                                    '{option}' => $options[$arg]['param']
+                                )));
                             }
+
+                            foreach ($this->parameters[$options[$arg]['param']] as $parameter) {
+                                $processed[] = $parameter;
+                            }
+
                         }
                     }
                 }
@@ -183,9 +204,9 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
             /**
              * calculate the difference between the cli string ($argv)
              * and the processed elements, the result is the common
-             * input arguments.
+             * input options.
              */
-            $this->arguments['input'] = array_diff($argv, $processed);
+            $this->parameters['input'] = array_diff($argv, $processed);
 
         } catch (\Exception $e) {
 
@@ -193,10 +214,86 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
              * if something goes wrong we log the error and
              * exist the program.
              */
-            $this->write($e->getMessage());
+            $this->writter->error($e->getMessage());
             exit("CLI System unable to start.\n");
 
         }
+
+        return $this;
+    }
+
+    /**
+     * Main execution method, here the system
+     * route to the proper methods or arguments.
+     * @param mixed $payload
+     * @return mixed
+     */
+    final public function execute($payload = null)
+    {
+
+        try {
+
+            /**
+             * if the help flag (-h) is present we show
+             * the help message.
+             */
+            if (isset($this->parameters['help'])) {
+                $this->writter->info($this->help());
+
+                return 0;
+
+            } else {
+
+                /**
+                 * launch the method initialize() if exists, this can help us
+                 * to prepare or initialize libs or whatever, before the main
+                 * code execution.
+                 */
+                if (method_exists($this, 'initialize')) {
+                    $this->initialize();
+                }
+
+                $payload = $this->run($payload);
+
+                /**
+                 * if a sub-command is defined to call, pass the current result if it exists
+                 * if not a simple null will be process, this allow us to share data between
+                 * different commands, chain call :D
+                 */
+                if (isset($this->parameters['command'])) {
+                    $payload = $this->parameters['command']->execute($payload);
+                }
+
+                /**
+                 * launch the method end() if exists, this acts as __destruct() method
+                 * can help us to process data after the execution of the chained command
+                 */
+                if (method_exists($this, 'finish')) {
+                    $payload = $this->finish($payload);
+                }
+
+                return $payload;
+            }
+
+        } catch (\Exception $e) {
+
+            /**
+             * if something goes wrong we log the error and
+             * exist the program.
+             */
+            $this->writter->error('> ' . $e->getMessage());
+
+            return -1;
+        }
+    }
+
+    /**
+     * Return the description message
+     * @return string
+     */
+    public function description()
+    {
+        return 'Slim command line interface builder.';
     }
 
     /**
@@ -205,97 +302,58 @@ abstract class Command implements \OtherCode\CLI\CommandInterface
      */
     public function help()
     {
-        $help = $this->description() . "\n" . self::NAME . " v" . self::VERSION . "\n";
+        $help = array($this->description() . "\n" . static::NAME . " v" . static::VERSION . "\n");
 
-        $options = "\n Options: \n";
-        $commands = "\n Commands: \n";
+        $options = array(" Options:");
 
         /**
-         * parse the options block to render de help message
-         * with the available options.
+         * parse the arguments block to render de help message
+         * with the available arguments.
          */
-        foreach ($this->options as $key => $value) {
-            if (strpos($key, '-') === false) {
-                $commands .= "   " . strtolower($value) . "\n";
-            } else {
-                $options .= "   " . $key . " " . ucfirst($value) . "\n";
+        foreach ($this->arguments as $key => $value) {
+            if (strpos($key, '-') !== false) {
+                $options[] = "   " . $key . "  " . ucfirst($value);
             }
         }
-        return $help . $options . $commands . "\n";
-    }
 
-    /**
-     * Write a text line
-     * @param string $msg
-     * @param array $context
-     */
-    public function write($msg, array $context = array())
-    {
-        print strtr($msg, $context) . "\n";
-    }
-
-    /**
-     * Get a input from the CLI
-     * @param string $message
-     * @param string $default
-     * @param bool $required
-     * @return string
-     */
-    public function input($message, $default = null, $required = false)
-    {
-        do {
-
-            if ($required === true && !empty($default)) {
-                $message .= ' [' . $default . ']';
-            }
-
-            $value = readline($message . ': ');
-
-            if (empty($value) && !empty($default)) {
-                $value = $default;
-            }
-
-        } while ($required === true && empty($value));
-
-        return $value;
-    }
-
-    /**
-     * Main execution method, here the system
-     * route to the proper methods or options.
-     */
-    public function execute()
-    {
-        try {
-
-            /**
-             * if the help flag (-h) is present we show
-             * the help message.
-             */
-            if (isset($this->arguments['help'])) {
-                print $this->help();
-
-            } else {
-
-                /**
-                 * if a sub-command is defined we run it and
-                 * save the result if it, then we pass the result
-                 * to the current command (callback system).
-                 */
-                $payload = null;
-                if (isset($this->arguments['command'])) {
-                    $payload = $this->arguments['command']->execute();
-                }
-                $this->run($payload);
-            }
-
-        } catch (\Exception $e) {
-
-            /**
-             * if something goes wrong we log the error and
-             * exist the program.
-             */
-            $this->write('> ' . $e->getMessage());
+        if (count($options) > 1) {
+            $help[] = implode("\n", $options) . "\n";
         }
+
+        $commands = array(" Commands:");
+
+        /**
+         * parse the commands block to render de help message
+         * with the available commands and description.
+         */
+        foreach ($this->commands as $key => $class) {
+            if (strpos($key, '-') === false && class_exists($class, true)) {
+                $commands[] = "   " . strtolower($key) . "  " . (new $class)->description();
+            }
+        }
+
+        if (count($commands) > 1) {
+            $help[] = implode("\n", $commands) . "\n";
+        }
+
+        return implode("\n", $help) . "\n";
+    }
+
+    /**
+     * Main code execution
+     * @return mixed
+     */
+    public function run()
+    {
+        if (!isset($this->parameters['command'])) {
+
+            /**
+             * this command only redirect and launch
+             * other sub-commands.
+             */
+            $this->writter->info($this->help());
+        }
+
+        return 0;
     }
 }

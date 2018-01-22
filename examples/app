@@ -1,0 +1,21 @@
+#!/usr/bin/env php
+
+<?php
+
+/**
+ * Include the core library
+ */
+require_once '../autoload.php';
+
+/**
+ * Include the app files (commands and libs)
+ */
+require_once 'App/CLIApplication.php';
+require_once 'App/Commands/HelloCommand.php';
+
+/**
+ * Command line entry point
+ */
+$app = new Sample\App\CLIApplication();
+$app->bootstrap($argv);
+$app->execute();
