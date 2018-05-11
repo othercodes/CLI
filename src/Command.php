@@ -20,10 +20,10 @@ abstract class Command
     const VERSION = '1.0.0';
 
     /**
-     * CLI Writter (print messages)
-     * @var \OtherCode\CLI\Writter
+     * CLI Writer (print messages)
+     * @var \OtherCode\CLI\Writer
      */
-    protected $writter;
+    protected $writer;
 
     /**
      * Available sub-commands list
@@ -45,18 +45,18 @@ abstract class Command
 
     /**
      * Command constructor.
-     * @param Writter|null $writter
+     * @param Writer|null $writer
      */
-    public function __construct(\OtherCode\CLI\Writter $writter = null)
+    public function __construct(\OtherCode\CLI\Writer $writer = null)
     {
         if (!ini_get('date.timezone')) {
             ini_set('date.timezone', 'UTC');
         }
 
-        if (isset($writter)) {
-            $this->writter;
+        if (isset($writer)) {
+            $this->writer;
         } else {
-            $this->writter = new \OtherCode\CLI\Writter();
+            $this->writer = new \OtherCode\CLI\Writer();
         }
 
         /**
@@ -214,7 +214,7 @@ abstract class Command
              * if something goes wrong we log the error and
              * exist the program.
              */
-            $this->writter->error($e->getMessage());
+            $this->writer->error($e->getMessage());
             exit("CLI System unable to start.\n");
 
         }
@@ -238,7 +238,7 @@ abstract class Command
              * the help message.
              */
             if (isset($this->parameters['help'])) {
-                $this->writter->info($this->help());
+                $this->writer->info($this->help());
 
                 return 0;
 
@@ -281,7 +281,7 @@ abstract class Command
              * if something goes wrong we log the error and
              * exist the program.
              */
-            $this->writter->error('> ' . $e->getMessage());
+            $this->writer->error('> ' . $e->getMessage());
 
             return -1;
         }
@@ -351,7 +351,7 @@ abstract class Command
              * this command only redirect and launch
              * other sub-commands.
              */
-            $this->writter->info($this->help());
+            $this->writer->info($this->help());
         }
 
         return 0;
