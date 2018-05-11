@@ -206,7 +206,7 @@ abstract class Command
              * and the processed elements, the result is the common
              * input options.
              */
-            $this->parameters['input'] = array_diff($argv, $processed);
+            $this->parameters['input'] = array_values(array_diff($argv, $processed));
 
         } catch (\Exception $e) {
 
